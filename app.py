@@ -134,7 +134,7 @@ st.markdown("## 📊 Match Strength")
 for r in top_results:
     st.markdown(f"**{r['role']}**")
     st.progress(r["score"])
--
+
 st.markdown("---")
 st.markdown("## 🔍 Explore Other Career Fits")
 
@@ -145,4 +145,5 @@ for col, r in zip(cols, top_results):
         st.markdown(f"**{r['role']}**")
         st.progress(r["score"])
         st.caption(f"{int(r['score']*100)}% skill alignment")
+
 
