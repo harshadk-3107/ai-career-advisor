@@ -96,8 +96,13 @@ st.markdown("## 🎯 Career Snapshot")
 
 col1, col2, col3 = st.columns(3)
 
+col1, col2, col3 = st.columns(3)
+
 with col1:
-    st.metric("Top Role", top_role["role"])
+    st.metric("Top Role", top_results[0]["role"])
+
+# ✅ DEFINE IT HERE (THIS WAS MISSING)
+top_score = top_results[0]["score"]
 
 with col2:
     # -------------------- CONFIDENCE LOGIC --------------------
@@ -114,8 +119,7 @@ with col2:
     st.metric("Confidence", f"{confidence_icon} {confidence_label}")
 
 with col3:
-    st.progress(readiness / 100)
-    st.caption(f"Readiness: {readiness}%")
+    st.metric("Readiness", readiness_label)
 
 st.markdown("---")
 
@@ -156,6 +160,7 @@ for col, r in zip(cols, top_results):
         st.markdown(f"**{r['role']}**")
         st.progress(r["score"])
         st.caption(f"{int(r['score']*100)}% skill alignment")
+
 
 
 
