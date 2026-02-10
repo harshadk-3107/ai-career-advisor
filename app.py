@@ -98,14 +98,16 @@ col1, col2, col3 = st.columns(3)
 
 col1, col2, col3 = st.columns(3)
 
+col1, col2, col3 = st.columns(3)
+
 with col1:
     st.metric("Top Role", top_results[0]["role"])
 
-# ✅ DEFINE IT HERE (THIS WAS MISSING)
+# ✅ DEFINE SCORE ONCE
 top_score = top_results[0]["score"]
 
 with col2:
-    # -------------------- CONFIDENCE LOGIC --------------------
+    # -------------------- CONFIDENCE --------------------
     if top_score >= 0.65:
         confidence_label = "Strong Fit"
         confidence_icon = "🟢"
@@ -119,7 +121,17 @@ with col2:
     st.metric("Confidence", f"{confidence_icon} {confidence_label}")
 
 with col3:
+    # -------------------- READINESS --------------------
+    if top_score >= 0.7:
+        readiness_label = "Ready for Interviews"
+    elif top_score >= 0.5:
+        readiness_label = "Almost Ready"
+    else:
+        readiness_label = "Needs Upskilling"
+
     st.metric("Readiness", readiness_label)
+
+
 
 st.markdown("---")
 
@@ -160,6 +172,7 @@ for col, r in zip(cols, top_results):
         st.markdown(f"**{r['role']}**")
         st.progress(r["score"])
         st.caption(f"{int(r['score']*100)}% skill alignment")
+
 
 
 
