@@ -100,6 +100,16 @@ with col1:
     st.metric("Top Role", top_role["role"])
 
 with col2:
+  
+if top_score >= 0.65:
+    confidence_label = "Strong Fit"
+    confidence_icon = "🟢"
+elif top_score >= 0.4:
+    confidence_label = "Moderate Fit"
+    confidence_icon = "🟡"
+else:
+    confidence_label = "Exploratory"
+    confidence_icon = "🔴"
     st.metric("Confidence", f"{confidence_icon} {confidence_label}")
 
 with col3:
@@ -145,5 +155,6 @@ for col, r in zip(cols, top_results):
         st.markdown(f"**{r['role']}**")
         st.progress(r["score"])
         st.caption(f"{int(r['score']*100)}% skill alignment")
+
 
 
