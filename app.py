@@ -1,233 +1,149 @@
 import streamlit as st
-import pandas as pd
-import pickle
 import matplotlib.pyplot as plt
-import numpy as np
 
-from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.cluster import KMeans
-
-# ==================================================
-# PAGE CONFIG
-# ==================================================
+# -------------------- PAGE CONFIG --------------------
 st.set_page_config(
     page_title="AI Career Advisor",
-    page_icon="🚀",
-    layout="wide"
+    layout="wide",
+    page_icon="🚀"
 )
 
-# ==================================================
-# LOAD MODEL & DATA
-# ==================================================
-@st.cache_resource
-def load_model():
-    with open("tfidf_model.pkl", "rb") as f:
-        return pickle.load(f)
-
-@st.cache_data
-def load_data():
-    return pd.read_csv("final_job_skills.csv")
-
-tfidf = load_model()
-df = load_data()
-
-# ==================================================
-# CLUSTERING (ROLE INFERENCE)
-# ==================================================
-@st.cache_resource
-def cluster_jobs(text):
-    vectors = tfidf.transform(text)
-    kmeans = KMeans(n_clusters=5, random_state=42, n_init=10)
-    return kmeans.fit_predict(vectors)
-
-df["cluster"] = cluster_jobs(df["job_skills"])
-
-CLUSTER_ROLE_MAP = {
-    0: "Machine Learning / AI Engineer",
-    1: "Data Analyst / Data Scientist",
-    2: "Full Stack / Web Developer",
-    3: "Cloud / DevOps Engineer",
-    4: "General Technical Role"
+# -------------------- CAREER KNOWLEDGE BASE --------------------
+CAREER_SKILLS = {
+    "Data Scientist": {
+        "python", "sql", "data science", "statistics", "machine learning",
+        "pandas", "numpy", "data visualization"
+    },
+    "Machine Learning Engineer": {
+        "python", "machine learning", "deep learning", "tensorflow",
+        "pytorch", "model deployment", "mlops"
+    },
+    "Backend Developer": {
+        "python", "java", "node", "api", "sql", "databases", "backend"
+    },
+    "Frontend Developer": {
+        "html", "css", "javascript", "react", "ui", "frontend"
+    },
+    "DevOps Engineer": {
+        "docker", "kubernetes", "aws", "ci/cd", "linux", "cloud"
+    },
+    "Business Analyst": {
+        "sql", "excel", "business analysis", "dashboard",
+        "data analytics", "power bi"
+    }
 }
 
-def get_role(cluster):
-    return CLUSTER_ROLE_MAP.get(cluster, "General Technical Role")
-
-# ==================================================
-# HELPER FUNCTIONS
-# ==================================================
-def confidence_label(score):
-    if score >= 0.55:
-        return "🟢 Strong Fit"
-    elif score >= 0.45:
-        return "🟡 Moderate Fit"
-    else:
-        return "🔴 Exploratory"
-
-def readiness_level(score):
-    if score >= 0.55:
-        return 0.85, "Ready"
-    elif score >= 0.45:
-        return 0.6, "Almost Ready"
-    else:
-        return 0.35, "Needs Upskilling"
-
-def skill_sets(user_skills, job_skills):
-    user = {s.strip().lower() for s in user_skills.split(",")}
-    job = {s.strip().lower() for s in job_skills.split(",") if len(s.strip()) > 2}
-    return user & job, job - user
-
-def skill_impact(user_skills, job_skills, tfidf, user_vector):
-    user_set = {s.strip().lower() for s in user_skills.split(",")}
-    job_list = [s.strip().lower() for s in job_skills.split(",")]
-
-    overlap = [s for s in job_list if s in user_set]
-    if not overlap:
-        return None
-
-    features = tfidf.get_feature_names_out()
-    vec = user_vector.toarray()[0]
-
-    weights = {}
-    for skill in overlap:
-        if skill in features:
-            idx = list(features).index(skill)
-            weights[skill] = vec[idx]
-
-    total = sum(weights.values())
-    return {k: v / total for k, v in weights.items()} if total > 0 else None
-
-# ==================================================
-# SIDEBAR
-# ==================================================
+# -------------------- UI: SIDEBAR --------------------
 st.sidebar.title("⚙️ Controls")
-
-top_n = st.sidebar.slider(
-    "Number of career paths",
-    3, 8, 5
-)
+top_n = st.sidebar.slider("Number of career paths", 3, 6, 5)
 
 st.sidebar.markdown("---")
-st.sidebar.markdown(
+st.sidebar.markdown("**AI Career Advisor**")
+st.sidebar.markdown("✔ Skill-based reasoning")
+st.sidebar.markdown("✔ Visual insights")
+st.sidebar.markdown("✔ Role clarity")
+
+# -------------------- HEADER --------------------
+st.markdown(
     """
-    **AI Career Advisor**  
-    ✔ NLP skill matching  
-    ✔ Visual insights  
-    ✔ Career guidance  
-    """
+    <h1>🚀 AI Career Advisor</h1>
+    <p style="opacity:0.8">A visual dashboard to understand where your skills fit best</p>
+    """,
+    unsafe_allow_html=True
 )
 
-# ==================================================
-# HEADER
-# ==================================================
-st.title("🚀 AI Career Advisor")
-st.caption("A visual AI dashboard to understand where your skills fit best")
-
-user_skills = st.text_input(
+# -------------------- INPUT --------------------
+skills_input = st.text_input(
     "Enter your skills (comma separated)",
-    placeholder="python, machine learning, sql, cloud"
+    placeholder="python, sql, data science"
 )
 
-# ==================================================
-# MAIN LOGIC
-# ==================================================
-if user_skills.strip():
+if not skills_input.strip():
+    st.stop()
 
-    user_vector = tfidf.transform([user_skills])
-    job_vectors = tfidf.transform(df["job_skills"])
+user_skills = {s.strip().lower() for s in skills_input.split(",") if s.strip()}
 
-    scores = cosine_similarity(user_vector, job_vectors).flatten()
-    df["match_score"] = scores
+# -------------------- MATCHING LOGIC --------------------
+results = []
 
-    top_matches = (
-        df.sort_values("match_score", ascending=False)
-        .head(top_n)
-        .reset_index(drop=True)
+for role, role_skills in CAREER_SKILLS.items():
+    overlap = user_skills & role_skills
+    score = len(overlap) / len(role_skills)
+    results.append({
+        "role": role,
+        "score": score,
+        "matched_skills": overlap
+    })
+
+results.sort(key=lambda x: x["score"], reverse=True)
+
+top_results = results[:top_n]
+top_role = top_results[0]
+
+# -------------------- CONFIDENCE + READINESS --------------------
+confidence_map = {
+    0.7: ("High Fit", "🟢", 90),
+    0.4: ("Moderate Fit", "🟡", 65),
+    0.2: ("Exploratory", "🔴", 40)
+}
+
+for threshold, val in confidence_map.items():
+    if top_role["score"] >= threshold:
+        confidence_label, confidence_icon, readiness = val
+        break
+
+# -------------------- CAREER SNAPSHOT --------------------
+st.markdown("## 🎯 Career Snapshot")
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.metric("Top Role", top_role["role"])
+
+with col2:
+    st.metric("Confidence", f"{confidence_icon} {confidence_label}")
+
+with col3:
+    st.progress(readiness / 100)
+    st.caption(f"Readiness: {readiness}%")
+
+st.markdown("---")
+
+# -------------------- SKILL IMPACT PIE --------------------
+st.markdown("## 🧩 Skill Impact")
+
+if top_role["matched_skills"]:
+    labels = list(top_role["matched_skills"])
+    sizes = [1] * len(labels)
+
+    fig, ax = plt.subplots()
+    ax.pie(
+        sizes,
+        labels=labels,
+        autopct="%1.1f%%",
+        startangle=90
     )
+    ax.axis("equal")
 
-    top = top_matches.iloc[0]
-    role = get_role(top["cluster"])
-    confidence = confidence_label(top["match_score"])
-    readiness, readiness_text = readiness_level(top["match_score"])
-    overlap, gap = skill_sets(user_skills, top["job_skills"])
-    impact = skill_impact(user_skills, top["job_skills"], tfidf, user_vector)
-
-    # ==================================================
-    # HERO SNAPSHOT
-    # ==================================================
-    st.markdown("## 🎯 Career Snapshot")
-
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Top Role", role)
-    col2.metric("Confidence", confidence)
-    col3.progress(readiness, text=f"Readiness: {readiness_text}")
-
-    st.divider()
-
-    # ==================================================
-    # MAIN VISUALS
-    # ==================================================
-    left, right = st.columns([1, 1])
-
-    # -------- Skill Impact Pie (PRIMARY VISUAL)
-    with left:
-        st.subheader("🧩 Skill Impact")
-        if impact:
-            fig, ax = plt.subplots(figsize=(4, 4))
-            ax.pie(
-                impact.values(),
-                labels=impact.keys(),
-                autopct="%1.0f%%",
-                startangle=140
-            )
-            ax.axis("equal")
-            st.pyplot(fig)
-        else:
-            st.info("Not enough overlapping skills to compute impact.")
-
-    # -------- Skill Match Bars
-    with right:
-        st.subheader("📊 Skill Match Strength")
-        if overlap:
-            for skill in list(overlap)[:6]:
-                st.write(skill.capitalize())
-                st.progress(0.7)
-        else:
-            st.write("Low direct overlap detected.")
-
-    st.divider()
-
-    # ==================================================
-    # GROWTH PATH
-    # ==================================================
-    st.subheader("🚀 Growth Path")
-
-    if gap:
-        st.write("Skills that will increase your readiness:")
-        cols = st.columns(min(4, len(gap)))
-        for i, skill in enumerate(list(gap)[:8]):
-            cols[i % len(cols)].success(skill)
-    else:
-        st.success("You already meet most core skill requirements!")
-
-    st.divider()
-
-    # ==================================================
-    # EXPLORE OTHER CAREERS (MINI CARDS)
-    # ==================================================
-    st.subheader("🔍 Explore Other Career Fits")
-
-    cards = st.columns(len(top_matches))
-
-    for i, row in top_matches.iterrows():
-        with cards[i]:
-            st.markdown(
-                f"""
-                **{get_role(row['cluster'])}**  
-                {confidence_label(row['match_score'])}
-                """
-            )
-            st.progress(min(row["match_score"], 1.0))
-
+    st.pyplot(fig)
 else:
-    st.info("👆 Enter your skills to see a visual career dashboard")
+    st.info("No overlapping skills found for the top role.")
+
+# -------------------- MATCH STRENGTH BARS --------------------
+st.markdown("## 📊 Match Strength")
+
+for r in top_results:
+    st.markdown(f"**{r['role']}**")
+    st.progress(r["score"])
+
+# -------------------- EXPLORE OTHER CAREERS --------------------
+st.markdown("---")
+st.markdown("## 🔍 Explore Other Career Fits")
+
+cols = st.columns(len(top_results))
+
+for col, r in zip(cols, top_results):
+    with col:
+        st.markdown(f"**{r['role']}**")
+        st.progress(r["score"])
+        st.caption(f"{int(r['score']*100)}% skill alignment")
